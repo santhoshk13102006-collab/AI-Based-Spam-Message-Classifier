@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI-Based Spam Message Classifier</title>
+<style>
+  :root{
+    --bg:#f0f2f5; --card:#fff; --ink:#1c2230; --muted:#667085; --line:#e2e6ee;
+    --blue:#1877f2; --blue-d:#0f5fcc; --spam:#d93025; --spam-bg:#fdecea; --ham:#1e8e4e; --ham-bg:#e6f6ec; --amber:#b7791f;
+    --head:#14213d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#10131a;--card:#191d27;--ink:#eaeef7;--muted:#98a2b8;--line:#2a3040;--blue:#5b9bff;--blue-d:#82b3ff;
+      --spam:#ff7a70;--spam-bg:#3a1d1f;--ham:#4fd18b;--ham-bg:#142b1e;--amber:#e8b04a;--head:#0b0e15}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+  header{background:var(--head);color:#fff;padding:16px 20px}
+  .hwrap{max-width:1000px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+  header h1{margin:0;font-size:1.35rem}
+  header p{margin:2px 0 0;font-size:.85rem;color:#b9c3d9}
+  .dbbadge{font-size:.8rem;font-weight:700;padding:5px 12px;border-radius:99px;background:#7a5b12;color:#ffe9b0}
+  nav{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .tabs{max-width:1000px;margin:0 auto;display:flex;overflow-x:auto}
+  .tab{border:0;background:none;color:var(--muted);padding:13px 18px;font:inherit;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+  .tab:hover{color:var(--ink)}
+  .tab.on{color:var(--blue);border-color:var(--blue)}
+  main{max-width:1000px;margin:0 auto;padding:20px 16px 50px}
+  .panel{display:none}.panel.on{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  h2{font-size:1rem;margin:0 0 12px}
+  textarea,input[type=text],input[type=password],input[type=search]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+  textarea{min-height:130px;resize:vertical}
+  textarea:focus,input:focus{outline:2px solid var(--blue);outline-offset:1px}
+  input:disabled{opacity:.6}
+  .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+  button.b{font:inherit;font-weight:600;padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+  button.b:hover{border-color:var(--blue)}
+  button.b.p{background:var(--blue);border-color:var(--blue);color:#fff}
+  button.b:disabled{opacity:.5;cursor:not-allowed}
+  .badge{display:inline-block;font-weight:800;letter-spacing:.5px;padding:6px 14px;border-radius:99px;background:var(--line);color:var(--muted)}
+  .badge.spam{background:var(--spam);color:#fff}.badge.ham{background:var(--ham);color:#fff}
+  .two{display:flex;flex-wrap:wrap;gap:24px;margin:12px 0}
+  .two b{font-size:1.1rem}.two span{display:block;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.5px}
+  .meter{height:18px;border-radius:99px;background:var(--line);overflow:hidden;margin:6px 0}
+  .meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1e8e4e,#f4b400,#d93025);transition:width .35s}
+  .mlab{display:flex;justify-content:space-between;color:var(--muted);font-size:.85rem}
+  .meta{margin:8px 0 0;font-size:.92rem}.meta b{color:var(--muted);font-weight:600}
+  .expl{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:var(--bg);font-size:.9rem;color:var(--muted)}
+  .grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .stat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+  .stat b{display:block;font-size:1.5rem}.stat span{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+  .cm{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;max-width:440px;margin-top:10px;text-align:center}
+  .cm div{padding:12px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+  .cm .h{background:none;border:0;color:var(--muted);font-size:.8rem;font-weight:600}
+  .cm .g{background:var(--ham-bg);color:var(--ham);font-weight:800;font-size:1.2rem}
+  .cm .r{background:var(--spam-bg);color:var(--spam);font-weight:800;font-size:1.2rem}
+  pre.log{background:#0e1117;color:#9ee6b3;border-radius:8px;padding:12px;max-height:200px;overflow:auto;font:12.5px/1.5 Consolas,monospace;margin:0;white-space:pre-wrap}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+  tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}tbody tr.sel{background:var(--bg);outline:2px solid var(--blue);outline-offset:-2px}
+  .pill{font-size:.72rem;font-weight:800;padding:2px 9px;border-radius:99px}
+  .pill.SPAM{background:var(--spam-bg);color:var(--spam)}.pill.HAM{background:var(--ham-bg);color:var(--ham)}
+  .pill.CORRECT{background:var(--ham-bg);color:var(--ham)}.pill.INCORRECT{background:var(--spam-bg);color:var(--spam)}.pill.NONE{background:var(--line);color:var(--muted)}
+  .scroll{overflow:auto;max-height:420px}
+  .form{display:grid;grid-template-columns:130px 1fr;gap:10px 12px;align-items:center;max-width:520px}
+  .note{background:var(--bg);border-left:4px solid var(--amber);border-radius:6px;padding:10px 12px;font-size:.9rem;margin:0 0 14px}
+  pre.sql{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:260px;overflow:auto;font:12.5px/1.5 Consolas,monospace;margin:10px 0 0}
+  footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;max-width:1000px;margin:0 auto;padding:0 16px 30px;color:var(--muted);font-size:.82rem}
+  .msg{margin:8px 0 0;color:var(--spam);font-size:.9rem;min-height:1.2em}
+  @media(max-width:600px){.form{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="hwrap">
+  <div><h1>AI-Based Spam Message Classifier</h1><p>Multinomial Naive Bayes Engine · NLP tokenizer · Laplace smoothing</p></div>
+  <span class="dbbadge" id="dbBadge">Browser storage mode</span>
+</div></header>
+<nav><div class="tabs" role="tablist">
+  <button class="tab on" data-t="classify">Message Classifier</button>
+  <button class="tab" data-t="train">Model &amp; Performance</button>
+  <button class="tab" data-t="history">Audit Logs</button>
+  <button class="tab" data-t="db">Database Settings</button>
+</div></nav>
+
+<main>
+<!-- ============ CLASSIFY ============ -->
+<section class="panel on" id="p-classify">
+  <div class="card">
+    <h2>Enter Message / Email / SMS Text to Analyze</h2>
+    <textarea id="input" placeholder="Paste or type a message here..."></textarea>
+    <div class="row">
+      <button class="b p" id="go">Analyze &amp; Classify</button>
+      <button class="b" id="sSpam">Load Sample Spam</button>
+      <button class="b" id="sHam">Load Sample Ham</button>
+      <button class="b" id="clr">Clear</button>
+    </div>
+    <p class="msg" id="err"></p>
+  </div>
+  <div class="card">
+    <h2>Prediction Result</h2>
+    <span class="badge" id="badge">AWAITING INPUT</span>
+    <div class="two">
+      <div><span>Confidence</span><b id="conf">--</b></div>
+      <div><span>Spam probability</span><b id="prob">--</b></div>
+    </div>
+    <div class="mlab"><span>Probability Meter (0% Ham → 100% Spam)</span><b id="mtxt">0%</b></div>
+    <div class="meter"><i id="mfill"></i></div>
+    <p class="meta"><b>Detected Heuristics:</b> <span id="feat">None</span></p>
+    <p class="meta"><b>Top Indicative Words:</b> <span id="words">None</span></p>
+    <p class="expl" id="expl" style="display:none"></p>
+  </div>
+</section>
+
+<!-- ============ TRAINING ============ -->
+<section class="panel" id="p-train">
+  <div class="card">
+    <h2>Model Evaluation (20% hold-out test split, seed 42)</h2>
+    <div class="grid4">
+      <div class="stat"><b id="mAcc">--</b><span>Accuracy</span></div>
+      <div class="stat"><b id="mPre">--</b><span>Precision</span></div>
+      <div class="stat"><b id="mRec">--</b><span>Recall</span></div>
+      <div class="stat"><b id="mF1">--</b><span>F1 score</span></div>
+    </div>
+    <h2 style="margin-top:18px">Confusion Matrix (Test Evaluation)</h2>
+    <div class="cm">
+      <div class="h"></div><div class="h">Predicted SPAM</div><div class="h">Predicted HAM</div>
+      <div class="h">Actual SPAM</div><div class="g" id="cTP">0</div><div class="r" id="cFN">0</div>
+      <div class="h">Actual HAM</div><div class="r" id="cFP">0</div><div class="g" id="cTN">0</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Model &amp; Dataset Information</h2>
+    <p class="meta"><b>Algorithm:</b> Multinomial Naive Bayes (Laplace α = 1.0)</p>
+    <p class="meta"><b>Vocabulary Size:</b> <span id="iVocab">--</span> words</p>
+    <p class="meta"><b>Total Dataset Samples:</b> <span id="iTotal">--</span> (<span id="iSpam">0</span> spam / <span id="iHam">0</span> ham)</p>
+    <div class="row">
+      <button class="b p" id="retrain">Retrain Model</button>
+      <button class="b" id="importBtn">Import CSV Dataset...</button>
+      <button class="b" id="resetData">Reset to Default Dataset</button>
+      <input type="file" id="file" accept=".csv,text/csv" hidden>
+    </div>
+  </div>
+  <div class="card"><h2>Training Logs</h2><pre class="log" id="log"></pre></div>
+</section>
+
+<!-- ============ HISTORY ============ -->
+<section class="panel" id="p-history">
+  <div class="card">
+    <h2>Classification Audit Log</h2>
+    <div class="row" style="margin-top:0">
+      <input type="search" id="search" placeholder="Search filter..." style="max-width:280px">
+      <button class="b" id="refresh">Refresh</button>
+      <button class="b" id="okBtn">Mark Correct</button>
+      <button class="b" id="badBtn">Mark Incorrect</button>
+      <button class="b" id="expBtn">Export CSV</button>
+      <button class="b" id="clearHist">Clear History</button>
+    </div>
+    <div class="scroll" style="margin-top:12px">
+      <table><thead><tr><th>ID</th><th>Message</th><th>Prediction</th><th>Spam prob.</th><th>Features</th><th>Feedback</th><th>Time</th></tr></thead>
+      <tbody id="hrows"></tbody></table>
+    </div>
+    <p class="msg" id="herr" style="color:var(--muted)"></p>
+  </div>
+</section>
+
+<!-- ============ DB ============ -->
+<section class="panel" id="p-db">
+  <div class="card">
+    <h2>MySQL Database Settings (JDBC Connector/J)</h2>
+    <p class="note">A web page cannot open a MySQL (JDBC) connection. In this online version, history, feedback and added training data are saved in your browser's local storage instead. The desktop Java app (<code>run.bat</code>) uses real MySQL with the same <code>schema.sql</code> below.</p>
+    <div class="form">
+      <label>Server Host</label><input type="text" value="localhost" disabled>
+      <label>Port</label><input type="text" value="3306" disabled>
+      <label>Database Name</label><input type="text" value="spam_classifier_db" disabled>
+      <label>Username</label><input type="text" value="root" disabled>
+      <label>Password</label><input type="password" value="" disabled>
+    </div>
+    <div class="row">
+      <button class="b" disabled>Test Connection</button>
+      <button class="b" disabled>Save &amp; Initialize Database</button>
+      <button class="b p" id="dlSchema">Download schema.sql</button>
+    </div>
+  </div>
+  <div class="card"><h2>schema.sql</h2><pre class="sql" id="sql"></pre></div>
+</section>
+</main>
+<footer><span>Model: Multinomial Naive Bayes | NLP Tokenizer + Laplace Smoothing</span><span>Java 17 &amp; MySQL JDBC Project · web edition</span></footer>
+
+<script>
+const PAYLOAD = {"data": [{"l": "SPAM", "t": "Congratulations! You have won a $1,000 Walmart gift card. Click http://win-now.cc to claim your prize immediately!"}, {"l": "SPAM", "t": "URGENT: Your bank account has been suspended due to suspicious activity. Verify now at http://secure-bank-login.biz"}, {"l": "SPAM", "t": "WINNER!! As a valued customer you are selected to receive a £900 prize reward! Call 09061701461 to claim."}, {"l": "SPAM", "t": "Double your income working 2 hours a day from home! No experience required. Visit http://easywealth.net today!"}, {"l": "SPAM", "t": "Hot singles in your area want to meet you tonight! Call 09099726488 or reply YES to start chatting now."}, {"l": "SPAM", "t": "FREE entry in a 2k weekly comp and chance to win iPod. Text WIN to 87121 now to enter."}, {"l": "SPAM", "t": "Exclusive offer! Get 90% discount on luxury watches and designer perfumes. Limited stock available at http://dealz-mart.com"}, {"l": "SPAM", "t": "Dear user, you have 1 pending package delivery. Pay $1.99 redelivery fee at http://postal-track-update.com"}, {"l": "SPAM", "t": "You have been pre-approved for a personal loan of $50,000 at 1.5% interest rate. Apply instantly at http://fast-cash-loans.info"}, {"l": "SPAM", "t": "FINAL NOTICE: IRS tax refund of $1,420 is pending your confirmation. Click http://irs-tax-gov.fake.org to process."}, {"l": "SPAM", "t": "Claim your complimentary vacation voucher to Bahamas worth $2500! Text TRAVEL to 68866 today."}, {"l": "SPAM", "t": "Earn $500 daily testing games and apps on your smartphone. Immediate payout via PayPal! Click http://cash-game-tester.xyz"}, {"l": "SPAM", "t": "Your Netflix account subscription will expire in 24 hours. Update billing information here: http://netflix-verify-service.net"}, {"l": "SPAM", "t": "Free ringtones, wallpapers and games for your phone! Reply YES to 44555 to activate your VIP club membership."}, {"l": "SPAM", "t": "You have won £500,000 in the UK National Lottery promo! Send your details to claim.prize@national-lottery-uk.org"}, {"l": "SPAM", "t": "Alert: Unauthorized login attempt from Russia on your Apple ID. Protect your device at http://appleid-security-check.cc"}, {"l": "SPAM", "t": "Get cheap prescription medicines online without prescription! Viagra, Cialis, Xanax up to 80% off at http://meds-express.to"}, {"l": "SPAM", "t": "Congratulations! Your mobile number was selected in our cash giveaway. Claim £2,500 now by texting CASH to 78877"}, {"l": "SPAM", "t": "Crypto alert: Invest $250 today and turn it into $5,000 by tomorrow morning! Guaranteed return at http://crypto-boom.io"}, {"l": "SPAM", "t": "Security Warning: Your PayPal account has been limited. Confirm your identity immediately at http://paypal-resolution-center.biz"}, {"l": "SPAM", "t": "You have 1 unread message from a secret admirer! Click http://dating-connect-now.info/view to read it."}, {"l": "SPAM", "t": "Urgent: Your Amazon order #402-991823 has failed payment. Click http://amzn-pay-update.com to prevent cancellation."}, {"l": "SPAM", "t": "Lose 15 pounds in 2 weeks without diet or exercise with Keto Burn Extreme! Order now at http://ketoburn-direct.com"}, {"l": "SPAM", "t": "Win a brand new iPhone 15 Pro Max! Spin the wheel to claim your prize now at http://spin-to-win-apple.online"}, {"l": "SPAM", "t": "Attention: Overdue traffic ticket notice. Pay your fine online before penalty increases at http://city-court-citation.com"}, {"l": "SPAM", "t": "Get rich quick with automated AI trading bot. 99.8% win rate guaranteed. Sign up at http://ai-profit-trader.club"}, {"l": "SPAM", "t": "Your parcel could not be delivered due to incorrect street number. Reschedule delivery at http://usps-tracking-redeliver.us"}, {"l": "SPAM", "t": "Exclusive VIP casino bonus! 500 free spins and 200% match deposit bonus. Join http://vegas-royal-spins.com"}, {"l": "SPAM", "t": "Urgent alert from Geek Squad: We renewed your annual tech support subscription for $399. Call 1-800-555-0199 to cancel."}, {"l": "SPAM", "t": "Reclaim your unclaimed funds from government escrow account. Contact officer John at escrow-claims@fastmail.com"}, {"l": "HAM", "t": "Hey, are we still meeting for lunch at the cafeteria at 12:30 PM?"}, {"l": "HAM", "t": "Please review the project report attached and let me know your thoughts before the client call."}, {"l": "HAM", "t": "Can you pick up some milk and eggs on your way back home from work?"}, {"l": "HAM", "t": "Your appointment with Dr. Robert has been scheduled for Friday at 10:00 AM."}, {"l": "HAM", "t": "Thanks for organizing the team dinner yesterday, everyone had a great time!"}, {"l": "HAM", "t": "The flight has been delayed by 30 minutes due to weather. I will keep you posted."}, {"l": "HAM", "t": "Hi Mom, I arrived safely at the hotel. Will call you after I unpack."}, {"l": "HAM", "t": "Your OTP for transaction at Amazon is 584920. Valid for 10 minutes. Do not share with anyone."}, {"l": "HAM", "t": "Good morning team, reminder that our sprint retrospective begins at 3 PM in Conference Room B."}, {"l": "HAM", "t": "Can you please forward me the slide deck from yesterday's architecture meeting?"}, {"l": "HAM", "t": "I submitted the pull request for the authentication module. Please review when you have time."}, {"l": "HAM", "t": "Hey, happy birthday! Hope you have a wonderful day celebrating with family and friends."}, {"l": "HAM", "t": "The library books you borrowed are due for return in 2 days. Visit the library desk to renew."}, {"l": "HAM", "t": "I will be working remotely from home tomorrow due to some plumber repairs."}, {"l": "HAM", "t": "Do you want to play badminton this Saturday morning at 8 AM at the sports complex?"}, {"l": "HAM", "t": "Hi Sarah, could you please sign the NDA document and send it back to HR?"}, {"l": "HAM", "t": "Dinner was delicious tonight! Thank you so much for having us over."}, {"l": "HAM", "t": "Don't forget to push your code changes to GitHub before leaving today."}, {"l": "HAM", "t": "Your Uber driver is arriving in 3 minutes in a Silver Toyota Camry."}, {"l": "HAM", "t": "The package you ordered has been delivered to your front porch."}, {"l": "HAM", "t": "Let's reschedule our one-on-one meeting to Thursday afternoon, something urgent came up."}, {"l": "HAM", "t": "Please find the updated invoice for August services attached to this email."}, {"l": "HAM", "t": "I loved the book you recommended, finished reading it yesterday!"}, {"l": "HAM", "t": "The dentist called to confirm your dental cleaning appointment for next Tuesday."}, {"l": "HAM", "t": "Hey, what time does the movie start tonight? Should I book the tickets online?"}, {"l": "HAM", "t": "All test suites passed successfully in the CI pipeline build #412."}, {"l": "HAM", "t": "Reminder: Parent teacher conference is scheduled for tomorrow at 4:30 PM."}, {"l": "HAM", "t": "Can someone help me troubleshoot the Docker container startup error on the dev server?"}, {"l": "HAM", "t": "I left my car keys on the kitchen counter, can you bring them down when you come?"}, {"l": "HAM", "t": "Great job on the presentation today, the management team was really impressed."}], "stop": ["a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during", "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself", "let's", "me", "more", "most", "mustn't", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's", "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves"]};
+const SCHEMA = "-- ==========================================================\n-- Database Schema for AI Spam Message Classifier Project\n-- Compatible with MySQL 8.x and MariaDB 10.x+\n-- ==========================================================\n\n-- 1. Create database if it does not already exist\nCREATE DATABASE IF NOT EXISTS `spam_classifier_db`\n    CHARACTER SET utf8mb4\n    COLLATE utf8mb4_unicode_ci;\n\nUSE `spam_classifier_db`;\n\n-- ----------------------------------------------------------\n-- 2. Table: messages (Core Project Table per Slide 3 Design)\n-- Stores incoming messages, predictions, ground truth, and confidence\n-- ----------------------------------------------------------\nCREATE TABLE IF NOT EXISTS `messages` (\n    `id` INT AUTO_INCREMENT PRIMARY KEY,\n    `message_text` TEXT NOT NULL,\n    `actual_label` VARCHAR(10) NULL,\n    `predicted_label` VARCHAR(10) NOT NULL,\n    `confidence_score` FLOAT NOT NULL,\n    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,\n    INDEX `idx_messages_pred` (`predicted_label`),\n    INDEX `idx_messages_created` (`created_at` DESC)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n-- ----------------------------------------------------------\n-- 3. Table: training_dataset\n-- Stores labeled messages used to train and retrain the AI model\n-- ----------------------------------------------------------\nCREATE TABLE IF NOT EXISTS `training_dataset` (\n    `id` INT AUTO_INCREMENT PRIMARY KEY,\n    `message_text` TEXT NOT NULL,\n    `label` ENUM('SPAM', 'HAM') NOT NULL,\n    `source` VARCHAR(64) DEFAULT 'DEFAULT_SEED',\n    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    INDEX `idx_training_label` (`label`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n-- ----------------------------------------------------------\n-- 3. Table: classification_history\n-- Stores real-time predictions, probabilities, and user feedback\n-- ----------------------------------------------------------\nCREATE TABLE IF NOT EXISTS `classification_history` (\n    `id` INT AUTO_INCREMENT PRIMARY KEY,\n    `message_text` TEXT NOT NULL,\n    `prediction` ENUM('SPAM', 'HAM') NOT NULL,\n    `spam_probability` DECIMAL(5, 4) NOT NULL,\n    `confidence_pct` DECIMAL(5, 2) NOT NULL,\n    `detected_features` TEXT NULL,\n    `user_feedback` ENUM('NONE', 'CORRECT', 'INCORRECT') DEFAULT 'NONE',\n    `classified_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    INDEX `idx_history_prediction` (`prediction`),\n    INDEX `idx_history_feedback` (`user_feedback`),\n    INDEX `idx_history_timestamp` (`classified_at` DESC)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n-- ----------------------------------------------------------\n-- 4. Table: model_metadata\n-- Records historical training sessions, dataset size, and accuracy metrics\n-- ----------------------------------------------------------\nCREATE TABLE IF NOT EXISTS `model_metadata` (\n    `id` INT AUTO_INCREMENT PRIMARY KEY,\n    `model_name` VARCHAR(100) NOT NULL,\n    `algorithm` VARCHAR(100) DEFAULT 'Multinomial Naive Bayes',\n    `vocabulary_size` INT NOT NULL,\n    `total_samples` INT NOT NULL,\n    `spam_samples` INT NOT NULL,\n    `ham_samples` INT NOT NULL,\n    `accuracy` DECIMAL(5, 4) NOT NULL,\n    `precision_score` DECIMAL(5, 4) NOT NULL,\n    `recall_score` DECIMAL(5, 4) NOT NULL,\n    `f1_score` DECIMAL(5, 4) NOT NULL,\n    `trained_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n-- ----------------------------------------------------------\n-- 5. Initial Seed Training Data (Representative sample)\n-- Additional data can be trained dynamically from CSV or GUI\n-- ----------------------------------------------------------\nINSERT INTO `training_dataset` (`message_text`, `label`, `source`) VALUES\n('Congratulations! You have won a $1,000 Walmart gift card. Click http://win-now.cc to claim your prize immediately!', 'SPAM', 'SEED'),\n('URGENT: Your bank account has been suspended due to suspicious activity. Verify now at http://secure-bank-login.biz', 'SPAM', 'SEED'),\n('WINNER!! As a valued customer you are selected to receive a £900 prize reward! Call 09061701461 to claim.', 'SPAM', 'SEED'),\n('Double your income working 2 hours a day from home! No experience required. Visit http://easywealth.net today!', 'SPAM', 'SEED'),\n('Hot singles in your area want to meet you tonight! Call 09099726488 or reply YES to start chatting now.', 'SPAM', 'SEED'),\n('FREE entry in a 2k weekly comp and chance to win iPod. Text WIN to 87121 now to enter.', 'SPAM', 'SEED'),\n('Exclusive offer! Get 90% discount on luxury watches and designer perfumes. Limited stock available at http://dealz-mart.com', 'SPAM', 'SEED'),\n('Dear user, you have 1 pending package delivery. Pay $1.99 redelivery fee at http://postal-track-update.com', 'SPAM', 'SEED'),\n('Hey, are we still meeting for lunch at the cafeteria at 12:30 PM?', 'HAM', 'SEED'),\n('Please review the project report attached and let me know your thoughts before the client call.', 'HAM', 'SEED'),\n('Can you pick up some milk and eggs on your way back home from work?', 'HAM', 'SEED'),\n('Your appointment with Dr. Robert has been scheduled for Friday at 10:00 AM.', 'HAM', 'SEED'),\n('Thanks for organizing the team dinner yesterday, everyone had a great time!', 'HAM', 'SEED'),\n('The flight has been delayed by 30 minutes due to weather. I will keep you posted.', 'HAM', 'SEED'),\n('Hi Mom, I arrived safely at the hotel. Will call you after I unpack.', 'HAM', 'SEED'),\n('Your OTP for transaction at Amazon is 584920. Valid for 10 minutes. Do not share with anyone.', 'HAM', 'SEED');\n";
+
+/* ================= FeatureExtractor (port of FeatureExtractor.java) ================= */
+const STOP = new Set(PAYLOAD.stop);
+const URL_RE = /https?:\/\/[-a-zA-Z0-9+&@#\/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#\/%=~_|]/gi;
+const PHONE_RE = /\b(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4,6}\b|\b\d{5}\b/g;
+const CURR_RE = /[$£€¥]\s?\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s?(?:dollars|usd|pounds|euros)\b/gi;
+const WORD_RE = /\b[a-zA-Z]{2,}\b/g;
+const URGENT = ["urgent","congratulations","congrats","winner","winning","won","free","claim","reward","prize","suspended","verify","expire","expires","limited","lottery","giveaway","billion","million","cash","crypto","bonus","guaranteed","unclaimed","immediately","act","now"];
+const URGENT_SET = new Set(URGENT);
+const cnt = (re,s)=> (s.match(re)||[]).length;
+
+function extractTokens(text){
+  if(!text || !text.trim()) return [];
+  const tk=[]; let w=text;
+  for(let i=cnt(URL_RE,w);i>0;i--) tk.push("__token_url__");   w=w.replace(URL_RE," ");
+  for(let i=cnt(CURR_RE,w);i>0;i--) tk.push("__token_currency__"); w=w.replace(CURR_RE," ");
+  for(let i=cnt(PHONE_RE,w);i>0;i--) tk.push("__token_phone__"); w=w.replace(PHONE_RE," ");
+  for(const raw of (w.match(WORD_RE)||[])){
+    const lo=raw.toLowerCase();
+    if(raw.length>=4 && raw===raw.toUpperCase()) tk.push("__token_caps__");
+    if(URGENT_SET.has(lo)) tk.push("__token_urgency__");
+    if(!STOP.has(lo)) tk.push(lo);
+  }
+  return tk;
+}
+function diagnostics(text){
+  const f=[]; if(!text||!text.trim()) return f;
+  const u=cnt(URL_RE,text); if(u>0) f.push(`Contains ${u} URL link(s)`);
+  if(cnt(CURR_RE,text)>0) f.push("Contains monetary amount or currency symbol");
+  if(cnt(PHONE_RE,text)>0) f.push("Contains phone number or SMS shortcode");
+  let up=0,lt=0;
+  for(const c of text){ if(/\p{L}/u.test(c)){ lt++; if(c===c.toUpperCase() && c!==c.toLowerCase()) up++; } }
+  if(lt>10 && up/lt>0.35) f.push(`High uppercase ratio (${Math.floor(up/lt*100)}% capital letters)`);
+  const lower=text.toLowerCase();
+  const found=URGENT.filter(k=>new RegExp("\\b"+k+"\\b").test(lower));
+  if(found.length) f.push("High-risk trigger words: "+found.slice(0,4).join(", "));
+  return f;
+}
+
+/* ================= NaiveBayesClassifier (port of NaiveBayesClassifier.java) ================= */
+const ALPHA=1.0;
+class NB{
+  train(data){
+    this.spam=new Map();this.ham=new Map();this.vocab=new Set();
+    this.dS=0;this.dH=0;this.tS=0;this.tH=0;
+    for(const ex of data){
+      const sp=ex.l==="SPAM"; sp?this.dS++:this.dH++;
+      for(const t of extractTokens(ex.t)){
+        this.vocab.add(t); const m=sp?this.spam:this.ham; m.set(t,(m.get(t)||0)+1); sp?this.tS++:this.tH++;
+      }
+    }
+    this.trained=true;
+  }
+  classify(text){
+    if(!text||!text.trim()) return {label:"HAM",pSpam:0,conf:100,feat:[],top:[],why:"Empty message classified as Ham by default."};
+    const tokens=extractTokens(text), feat=diagnostics(text), n=this.dS+this.dH;
+    let lS=Math.log((this.dS+ALPHA)/(n+2*ALPHA)), lH=Math.log((this.dH+ALPHA)/(n+2*ALPHA));
+    const V=Math.max(1,this.vocab.size), dS=this.tS+ALPHA*V, dH=this.tH+ALPHA*V, infl=new Map();
+    for(const t of tokens){
+      const ps=Math.log(((this.spam.get(t)||0)+ALPHA)/dS), ph=Math.log(((this.ham.get(t)||0)+ALPHA)/dH);
+      lS+=ps; lH+=ph;
+      if(!t.startsWith("__token_")) infl.set(t,(infl.get(t)||0)+(ps-ph));
+    }
+    const d=lS-lH, p=d>35?0.9999:d<-35?0.0001:1/(1+Math.exp(-d)), sp=p>=0.5;
+    const conf=(sp?p:1-p)*100;
+    const top=[...infl.entries()].sort((a,b)=>sp?b[1]-a[1]:a[1]-b[1]).slice(0,6).map(e=>e[0]);
+    let why;
+    if(sp){ why=`Classified as SPAM based on high probability (${(p*100).toFixed(2)}%). `;
+      if(top.length) why+=`Top spam keywords: ${top.join(", ")}. `;
+      if(feat.length) why+=`Suspicious flags: ${feat.join("; ")}.`;
+    } else { why=`Classified as legitimate HAM based on healthy conversational patterns (${((1-p)*100).toFixed(2)}% confidence). `;
+      if(top.length) why+=`Top normal keywords: ${top.join(", ")}.`; }
+    return {label:sp?"SPAM":"HAM",pSpam:p,conf,feat,top,why};
+  }
+  evaluate(set){
+    let tp=0,fp=0,tn=0,fn=0;
+    for(const ex of set){ const a=ex.l==="SPAM",p=this.classify(ex.t).label==="SPAM";
+      if(a&&p)tp++;else if(!a&&p)fp++;else if(!a&&!p)tn++;else fn++; }
+    const N=tp+fp+tn+fn, pr=tp+fp?tp/(tp+fp):0, rc=tp+fn?tp/(tp+fn):0;
+    return {tp,fp,tn,fn,N,acc:N?(tp+tn)/N:0,pre:pr,rec:rc,f1:pr+rc?2*pr*rc/(pr+rc):0};
+  }
+}
+
+/* ============ java.util.Random + Collections.shuffle (so the 80/20 split matches the Java app) ============ */
+class JRandom{
+  constructor(seed){ this.s=(BigInt(seed)^0x5DEECE66Dn)&((1n<<48n)-1n); }
+  next(bits){ this.s=(this.s*0x5DEECE66Dn+0xBn)&((1n<<48n)-1n); return Number(BigInt.asIntN(32,this.s>>BigInt(48-bits))); }
+  nextInt(bound){
+    let r=this.next(31); const m=bound-1;
+    if((bound&m)===0) return Number((BigInt(bound)*BigInt(r))>>31n);
+    for(let u=r; u-(r=u%bound)+m > 2147483647; u=this.next(31));
+    return r;
+  }
+}
+function javaShuffle(list,seed){ const a=list.slice(), rnd=new JRandom(seed);
+  for(let i=a.length;i>1;i--){ const j=rnd.nextInt(i); [a[i-1],a[j]]=[a[j],a[i-1]]; } return a; }
+
+/* ================= App state & "database" (localStorage) ================= */
+const store={
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+};
+let dataset = store.get("sc_dataset", null) || PAYLOAD.data.map(r=>({...r}));
+let history = store.get("sc_history", []);
+let selId = null;
+const model = new NB();
+let lastMetrics=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function log(s){ const el=$("log"); el.textContent+=`[${new Date().toLocaleTimeString()}] ${s}\n`; el.scrollTop=el.scrollHeight; }
+
+function trainModel(data, why){
+  const sh=javaShuffle(data,42);
+  let n=Math.floor(sh.length*0.8); if(n<2) n=sh.length;
+  const tr=sh.slice(0,n), te=sh.slice(n);
+  model.train(tr);
+  lastMetrics=model.evaluate(te.length?te:tr);
+  log(`${why}: ${data.length} samples (train ${tr.length} / test ${te.length||tr.length}), vocabulary ${model.vocab.size} words.`);
+  log(`Accuracy ${(lastMetrics.acc*100).toFixed(2)}%  Precision ${(lastMetrics.pre*100).toFixed(2)}%  Recall ${(lastMetrics.rec*100).toFixed(2)}%  F1 ${(lastMetrics.f1*100).toFixed(2)}%`);
+  renderTrain();
+}
+function renderTrain(){
+  const m=lastMetrics, pc=x=>(x*100).toFixed(2)+"%";
+  $("mAcc").textContent=pc(m.acc);$("mPre").textContent=pc(m.pre);$("mRec").textContent=pc(m.rec);$("mF1").textContent=pc(m.f1);
+  $("cTP").textContent=m.tp;$("cFN").textContent=m.fn;$("cFP").textContent=m.fp;$("cTN").textContent=m.tn;
+  $("iVocab").textContent=model.vocab.size;$("iTotal").textContent=dataset.length;
+  $("iSpam").textContent=dataset.filter(d=>d.l==="SPAM").length;$("iHam").textContent=dataset.filter(d=>d.l==="HAM").length;
+}
+
+/* ================= Classify tab ================= */
+const SAMPLE_SPAM="Congratulations! You have won a $1,000 Walmart gift card. Click http://win-now.cc to claim your prize immediately!";
+const SAMPLE_HAM="Hey Sarah, are we still meeting for lunch at 12:30 PM today? Please bring the project report copy with you.";
+function resetResult(){
+  $("badge").textContent="AWAITING INPUT";$("badge").className="badge";
+  $("conf").textContent="--";$("prob").textContent="--";$("mtxt").textContent="0%";$("mfill").style.width="0";
+  $("feat").textContent="None";$("words").textContent="None";$("expl").style.display="none";$("err").textContent="";
+}
+function classify(){
+  const text=$("input").value;
+  if(!text.trim()){ $("err").textContent="Please enter message text to classify."; return; }
+  $("err").textContent="";
+  const r=model.classify(text), sp=r.label==="SPAM";
+  $("badge").textContent=sp?"SPAM DETECTED":"LEGITIMATE (HAM)"; $("badge").className="badge "+(sp?"spam":"ham");
+  $("conf").textContent=r.conf.toFixed(2)+"%"; $("prob").textContent=(r.pSpam*100).toFixed(2)+"%";
+  const pct=Math.round(r.pSpam*100); $("mtxt").textContent=pct+"%"; $("mfill").style.width=pct+"%";
+  $("feat").textContent=r.feat.length?r.feat.join("; "):"None (Standard clean text)";
+  $("words").textContent=r.top.length?r.top.join(", "):"None";
+  $("expl").style.display="block"; $("expl").textContent=r.why;
+  const id=(history.reduce((m,h)=>Math.max(m,h.id),0))+1;
+  history.unshift({id,text,pred:r.label,prob:r.pSpam,conf:r.conf,feat:r.feat.join(", "),fb:"NONE",at:Date.now()});
+  history=history.slice(0,500); store.set("sc_history",history); renderHistory();
+}
+$("go").onclick=classify;
+$("sSpam").onclick=()=>{$("input").value=SAMPLE_SPAM;classify();};
+$("sHam").onclick=()=>{$("input").value=SAMPLE_HAM;classify();};
+$("clr").onclick=()=>{$("input").value="";resetResult();};
+$("input").addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)) classify(); });
+
+/* ================= Training tab ================= */
+$("retrain").onclick=()=>trainModel(dataset,"Retrained");
+$("resetData").onclick=()=>{ dataset=PAYLOAD.data.map(r=>({...r})); store.set("sc_dataset",null); trainModel(dataset,"Reset to default dataset"); };
+$("importBtn").onclick=()=>$("file").click();
+function parseCsv(txt){
+  const out=[]; let first=true;
+  for(let line of txt.split(/\r?\n/)){
+    if(first){ first=false; const l=line.toLowerCase(); if(l.includes("label")||l.includes("message")) continue; }
+    line=line.trim(); if(!line) continue;
+    const c=line.indexOf(","); if(c<=0) continue;
+    const label=line.slice(0,c).trim().toUpperCase(); let t=line.slice(c+1).trim();
+    if(t.length>=2&&t.startsWith('"')&&t.endsWith('"')) t=t.slice(1,-1);
+    t=t.replace(/""/g,'"');
+    if(label==="SPAM"||label==="HAM") out.push({l:label,t});
+  }
+  return out;
+}
+$("file").onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rows=parseCsv(await f.text());
+  if(!rows.length){ log(`Import failed: no valid rows in ${f.name} (expected columns: label,message).`); }
+  else { dataset=rows; store.set("sc_dataset",dataset); trainModel(dataset,`Imported ${f.name}`); }
+  e.target.value="";
+};
+
+/* ================= History tab ================= */
+function renderHistory(){
+  const q=$("search").value.trim().toLowerCase();
+  const rows=history.filter(h=>!q||h.text.toLowerCase().includes(q)||h.pred.toLowerCase().includes(q)||h.fb.toLowerCase().includes(q));
+  $("hrows").innerHTML=rows.map(h=>`<tr data-id="${h.id}" class="${h.id===selId?"sel":""}">
+    <td>${h.id}</td><td>${esc(h.text.length>90?h.text.slice(0,90)+"…":h.text)}</td>
+    <td><span class="pill ${h.pred}">${h.pred}</span></td><td>${(h.prob*100).toFixed(2)}%</td>
+    <td>${esc(h.feat||"—")}</td><td><span class="pill ${h.fb}">${h.fb}</span></td>
+    <td>${new Date(h.at).toLocaleString()}</td></tr>`).join("") || `<tr><td colspan="7" style="color:var(--muted)">No classifications yet. Classify a message first.</td></tr>`;
+}
+$("hrows").onclick=e=>{ const tr=e.target.closest("tr[data-id]"); if(!tr) return; selId=+tr.dataset.id; renderHistory(); $("herr").textContent=""; };
+function feedback(v){
+  const h=history.find(x=>x.id===selId);
+  if(!h){ $("herr").textContent="Select a row first."; return; }
+  h.fb=v; store.set("sc_history",history); renderHistory();
+  if(v==="INCORRECT"){ // active learning: add with corrected label
+    const fixed=h.pred==="SPAM"?"HAM":"SPAM"; dataset.push({l:fixed,t:h.text}); store.set("sc_dataset",dataset);
+    $("herr").textContent=`Marked incorrect. Added to the training set as ${fixed}. Click "Retrain Model" to apply.`;
+  } else $("herr").textContent="Marked correct.";
+}
+$("okBtn").onclick=()=>feedback("CORRECT"); $("badBtn").onclick=()=>feedback("INCORRECT");
+$("search").oninput=renderHistory; $("refresh").onclick=()=>{ history=store.get("sc_history",[]); renderHistory(); };
+$("clearHist").onclick=()=>{ if(confirm("Delete all classification history?")){ history=[]; selId=null; store.set("sc_history",history); renderHistory(); } };
+function download(name,txt,type){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+$("expBtn").onclick=()=>{
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  download("classification_history.csv","id,message,prediction,spam_probability,features,feedback,time\n"+history.map(h=>[h.id,q(h.text),h.pred,h.prob.toFixed(4),q(h.feat),h.fb,new Date(h.at).toISOString()].join(",")).join("\n"),"text/csv");
+};
+
+/* ================= DB tab ================= */
+$("sql").textContent=SCHEMA;
+$("dlSchema").onclick=()=>download("schema.sql",SCHEMA,"text/plain");
+
+/* ================= Tabs ================= */
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("on",p.id==="p-"+b.dataset.t));
+});
+
+/* ================= Boot ================= */
+log("Starting AI Spam Message Classifier (browser edition)...");
+log("MySQL not available in a browser: using local storage fallback.");
+trainModel(dataset,"Initial training");
+renderHistory();
+</script>
+</body>
+</html>
